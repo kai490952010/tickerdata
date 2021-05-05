@@ -46,3 +46,8 @@ CREATE_MARKET_DIM = """
 		market_name varchar(100)
 	)
 """
+
+DELETE_DATA_FOR_TS_RANGE = """
+	DELETE FROM {:s} 
+	WHERE close_ts BETWEEN {:s} AND {:s}
+"""
