@@ -12,35 +12,19 @@ import pandas as pd
 from sqlalchemy import create_engine
 from .meta import get_sql_engine
 
-BINSIZES = {"1m": 1, "5m": 5, "1h": 60, "1d": 1440}
-
-class metaApi():
-    def __init__(self):
-        self.exchange = exchange
-
-    def get_min_max_ts(self, **kwargs):
-        """
-            Get min-max timestamps for available data of a coinpair
-        """
-        symbol = kwargs.get('symbol')
-        granularity = kwargs.get('granularity')
-
-        pass
-
 class BinanceAPI():
     """
         Class creates custom functionality around
-        Coingecko API to make data pulls easier
+        Binance API to make data pulls easier
     """
     def __init__(self):
         from binance.client import Client
+
         api_key = os.environ.get('BINANCE_API_KEY')
         api_secret = os.environ.get('BINANCE_API_SECRET')
+        if any([api_key, api_secret]):
+            raise Exception("Binance API could not find API key/secret.")
         self.api = Client(api_key, api_secret)
-        kline_size = {
-            '1m': self.api.KLINE_INTERVAL_1MINUTE,
-            '5m': self.api.KLINE_INTERVAL_5MINUTE
-        }
 
     @property
     def kline_constants(self):
@@ -65,36 +49,52 @@ class BinanceAPI():
             '1M': self.api.KLINE_INTERVAL_1MONTH
         }
 
-    def get_historical(self, symbol, start_ts=1388534461, end_ts=1388538061, granularity='1m'):
-        start_ts = datetime.utcfromtimestamp(start_ts).strftime("%d %b %Y %H:%M:%S")
-        end_ts = datetime.utcfromtimestamp(end_ts).strftime("%d %b %Y %H:%M:%S")
-        # kline interval
-        interval = self.kline_constants.get(granularity)
-        klines = self.api.get_historical_klines(symbol, 
-            interval, 
-            start_ts,
-            end_ts)
+    def get_historical(self, symbol, start_ts=None, end_ts=None, granularity='1m'):
+        """
+            Calls Binance api to get data for given timestamp range.
 
-        data = pd.DataFrame(klines,
-            columns = ['timestamp',
-                'open',
-                'high',
-                'low',
-                'close',
-                'volume',
-                'close_time',
-                'quote_av',
-                'trades',
-                'tb_base_av',
-                'tb_quote_av',
-                'ignore' ])
-        return data
+            Args:
+                symbol (str): Symbol for which data is to be extracted.
+                start_ts (int): Epoch timestamp in seconds to denote the starting period
+                end_ts (int): Epoch timestamp in seconds to denote the ending period
+                granularity (str): Candlestick timeframe. ex: 1m will return 1 minute 
+                    candles. For full list of available options, see function kline_constants.
+
+            Returns:
+                Pandas dataframe
+        """
+        interval = self.kline_constants.get(granularity)
+        
+        if start_ts and end_ts and interval:
+            start_ts = datetime.utcfromtimestamp(start_ts).strftime("%d %b %Y %H:%M:%S")
+            end_ts = datetime.utcfromtimestamp(end_ts).strftime("%d %b %Y %H:%M:%S")
+            klines = self.api.get_historical_klines(symbol, 
+                interval, 
+                start_ts,
+                end_ts)
+
+            data = pd.DataFrame(klines,
+                columns = ['open_time',
+                    'open',
+                    'high',
+                    'low',
+                    'close',
+                    'volume',
+                    'close_time',
+                    'quote_av',
+                    'trades',
+                    'tb_base_av',
+                    'tb_quote_av',
+                    'ignore' ])
+            return data
+        else:
+            raise Exception("Binance API: Start and end timestamps not specified.")
 
 
 class CoingeckoAPI():
     """
         Class creates custom functionality around
-        Coingecko API to make data pulls easier
+        Coingecko API to provide metadata on crypto market data.
     """
     def __init__(self):
         from pycoingecko import CoinGeckoAPI
@@ -102,6 +102,12 @@ class CoingeckoAPI():
 
     @property
     def exchanges(self):
+        """
+            Provides list of available exchanges with data available on Coingecko.
+
+            Returns:
+                List of strings.
+        """
         return [ex['id'] for ex in self.api.get_exchanges_list()]
 
     def get_coin_pairs(self, exchange='binance', **kwargs):
