@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from sqlalchemy import create_engine
 
 def get_sql_engine():
@@ -23,7 +24,11 @@ def get_sql_engine():
 
 class metaApi():
     def __init__(self):
-        self.exchange = exchange
+        pass
+
+    @property
+    def current_epoch_ts(self):
+        return round(datetime.now().timestamp())
 
     def get_min_max_ts(self, symbol, granularity, **kwargs):
         """
